@@ -23,7 +23,8 @@ server.use(cors({
   optionsSuccessStatus: 204
 }));
 
-server.options('*', cors());
+// server.options('*', cors());
+server.use(cors("*"));
 
 server.use(express.json());
 server.use(cookieParser());
