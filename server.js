@@ -13,24 +13,24 @@ const GoogleAuthAPI = require('./routes/googleFbRouter');
 
 const StatAPI = require('./routes/taskstatRouter');
 
-// server.use(cors({
-//   origin: process.env.DEV_URL,
-//   credentials: true,
-//   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-//   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-//   exposedHeaders: ['Set-Cookie'],
-//   preflightContinue: false,
-//   optionsSuccessStatus: 204
-// }));
-
-// server.options('*', cors());
-const corsOptions = {
-  origin: ["https://67ea5cf69879dfd0369441cb--jade-puffpuff-f813cb.netlify.app/login"],
-  methods: "GET,POST,PUT,DELETE",
-  allowedHeaders: "Content-Type,Authorization",
+server.use(cors({
+  origin: process.env.PRO_URL,
   credentials: true,
-};
-server.use(cors(corsOptions));
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  exposedHeaders: ['Set-Cookie'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+}));
+
+server.options('*', cors());
+// const corsOptions = {
+//   origin: [process.env.DEV_URL],
+//   methods: "GET,POST,PUT,DELETE",
+//   allowedHeaders: "Content-Type,Authorization",
+//   credentials: true,
+// };
+// server.use(cors({origin: "*"}));
 
 server.use(express.json());
 server.use(cookieParser());
