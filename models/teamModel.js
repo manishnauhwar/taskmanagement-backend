@@ -1,66 +1,35 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
-
-const memberSchema = new mongoose.Schema(
-  {
-
-    externalId: {
-      type: String,
-      required: true
-    },
-    name: {
-      type: String,
-      required: true
-    },
-    role: {
-      type: String,
-      required: true
-
-    },
-    email: {
-      type: String,
-      required: true
-
-    }
+const teamSchema = new mongoose.Schema({
+  teamName: {
+    type: String,
+    trim: true
   },
-  { _id: false }
-);
-
-const managerSchema = new mongoose.Schema(
-  {
-    externalId: {
-      type: String,
-      required: true
-    },
-    name: {
-      type: String,
-      required: true
-    },
-    email: {
-      type: String,
-      required: true
-    }
+  name: {
+    type: String,
+    required: true,
+    trim: true
   },
-  { _id: false }
-);
-
-const teamSchema = new mongoose.Schema(
-  {
-    externalId: {
-      type: String,
-      required: true
-    },
-    name: {
-      type: String,
-      required: true
-    },
-    members: [memberSchema],
-    manager: {
-      type: managerSchema,
-      required: true
-    }
+  manager: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
   },
-  { timestamps: true }
-);
+  members: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    }
+  ],
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  }
+}, {
+  timestamps: true
+});
 
-module.exports = mongoose.model("Team", teamSchema);
+teamSchema.index({ name: 1 }, { unique: true });
+
+module.exports = mongoose.model('Team', teamSchema);
