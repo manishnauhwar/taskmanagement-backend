@@ -7,6 +7,11 @@ const taskSchema = new mongoose.Schema(
       required: true,
       default: () => require('crypto').randomBytes(8).toString('hex')
     },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
     title: {
       type: String,
       required: true
@@ -17,8 +22,8 @@ const taskSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      required: true,
-      enum: ["To Do", "In progress", "Completed", "pending"],
+      required: false,
+      enum: ["To Do", "In progress", "Completed"],
       default: "To Do"
     },
     priority: {
@@ -30,20 +35,19 @@ const taskSchema = new mongoose.Schema(
       type: Date,
       required: true
     },
-   
     assignedTo: {
       type: String,
       required: false,
-      default: "" 
+      default: ""
     },
     completionTime: {
       type: String
-    }
+    },
+
   },
   {
     versionKey: false,
-    timestamps: true 
+    timestamps: true
   }
 );
-
 module.exports = mongoose.model("Task", taskSchema);

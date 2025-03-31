@@ -1,29 +1,10 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
-const taskStatisticSchema = new mongoose.Schema(
-  {
+const TaskStateSchema = new mongoose.Schema({
+  year: { type: Number, required: true },
+  totalTasks: { type: Number, required: true },
+  completedTasks: { type: Number, required: true },
+  id: { type: String, required: true, unique: true }
+});
 
-    externalId: {
-      type: String,
-      required: true
-    },
-    year: {
-      type: Number,
-      required: true
-    },
-    totalTasks: {
-      type: Number,
-      required: true
-    },
-    completedTasks: {
-      type: Number,
-      required: true
-    }
-  },
-  {
-    versionKey: false,
-    timestamps: true
-  }
-);
-
-module.exports = mongoose.model("TaskStatistic", taskStatisticSchema);
+module.exports = mongoose.model('TaskState', TaskStateSchema);
