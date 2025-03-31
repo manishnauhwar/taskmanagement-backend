@@ -24,7 +24,13 @@ const StatAPI = require('./routes/taskstatRouter');
 // }));
 
 // server.options('*', cors());
-server.use(cors({origin: "*"}));
+const corsOptions = {
+  origin: ["https://67ea5cf69879dfd0369441cb--jade-puffpuff-f813cb.netlify.app/login"],
+  methods: "GET,POST,PUT,DELETE",
+  allowedHeaders: "Content-Type,Authorization",
+  credentials: true,
+};
+server.use(cors(corsOptions));
 
 server.use(express.json());
 server.use(cookieParser());
