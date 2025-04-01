@@ -9,17 +9,15 @@ const taskMiddleware = {
         return res.status(404).json({ message: "Task not found" });
       }
 
+      const userId = req.user.id || req.user.userId;
+
       if (['admin', 'manager'].includes(req.user.role)) {
         req.task = task;
         return next();
       }
 
-      if (task.userId && task.userId.toString() === req.user.id) {
-        req.task = task;
-        return next();
-      }
-
-      if (task.assignedTo && task.assignedTo.toString() === req.user.id) {
+      if (task.userId.toString() === userId ||
+        task.assignedTo === userId) {
         req.task = task;
         return next();
       }

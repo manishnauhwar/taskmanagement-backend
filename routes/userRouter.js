@@ -2,16 +2,14 @@ const router = require('express').Router();
 const User = require('../models/userModel');
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const cookieParser = require('cookie-parser');
 const userModel = require('../models/userModel');
 
-router.use(cookieParser());
 router.get("/alluser", async (req, res) => {
   try {
     const allUsers = await userModel.find()
     res.status(200).json({ message: "all user data found", allUsers });
   } catch (error) {
-
+    res.status(500).json({ message: "Server error", error });
   }
 })
 
@@ -72,16 +70,9 @@ router.post('/login', async (req, res) => {
       { expiresIn: "2d" }
     );
 
-
-    res.cookie('token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "development",
-      sameSite: "strict",
-      maxAge: 1000 * 60 * 60 * 24 * 2,
-    });
-
     res.status(200).json({
       message: "Login successful",
+      token,
       user: {
         id: user._id,
         username: user.username,
@@ -136,7 +127,6 @@ router.put('/:id', async (req, res) => {
 });
 
 router.post('/logout', (req, res) => {
-  res.clearCookie('token');
   res.status(200).json({ message: 'Logged out successfully' });
 });
 

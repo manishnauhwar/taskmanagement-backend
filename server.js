@@ -4,36 +4,34 @@ require("dotenv").config();
 
 const connectDB = require('./config/connectDb');
 const cors = require('cors');
-const cookieParser = require('cookie-parser');
 const TeamAPI = require('./routes/teamRouter');
 const UserAPI = require('./routes/userRouter');
 const TaskAPI = require('./routes/taskRouter');
-
 const GoogleAuthAPI = require('./routes/googleFbRouter');
-
 const StatAPI = require('./routes/taskstatRouter');
 
+// CORS configuration
 server.use(cors({
-  origin: process.env.PRO_URL,
+  origin: process.env.DEV_URL,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-  exposedHeaders: ['Set-Cookie'],
+  exposedHeaders: ['Authorization'],
   preflightContinue: false,
   optionsSuccessStatus: 204
 }));
 
+server.use((req, res, next) => {
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
+  res.setHeader('Access-Control-Allow-Origin', process.env.DEV_URL);
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  next();
+});
+
 server.options('*', cors());
-// const corsOptions = {
-//   origin: [process.env.DEV_URL],
-//   methods: "GET,POST,PUT,DELETE",
-//   allowedHeaders: "Content-Type,Authorization",
-//   credentials: true,
-// };
-// server.use(cors({origin: "*"}));
 
 server.use(express.json());
-server.use(cookieParser());
 
 server.use('/users', UserAPI);
 server.use('/tasks', TaskAPI);
