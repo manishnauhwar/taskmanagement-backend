@@ -50,20 +50,19 @@ router.post(['/', '/google'], async (req, res) => {
     }
 
     const jwtToken = jwt.sign(
-      { userId: user._id, role: user.role },
+      {
+        id: user._id,
+        userId: user._id,
+        role: user.role
+      },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
 
-    res.cookie('token', jwtToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 24 * 60 * 60 * 1000
-    });
-
     res.json({
       success: true,
       user: {
+        token: jwtToken,
         _id: user._id,
         username: user.username,
         email: user.email,
@@ -109,12 +108,7 @@ router.post('/facebook', async (req, res) => {
       { expiresIn: '24h' }
     );
 
-    res.cookie('token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 24 * 60 * 60 * 1000
-    });
-
+    res.set('Authorization', `Bearer ${token}`);
     res.json({
       success: true,
       user: {

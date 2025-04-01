@@ -16,7 +16,17 @@ router.use(authMiddleware);
 router.post('/post', taskMiddleware.validateTaskData, async (req, res) => {
   try {
     const { title, description, status, dueDate, priority, assignedTo } = req.body;
+
+    if (!req.user || (!req.user.id && !req.user.userId)) {
+      return res.status(401).json({
+        success: false,
+        message: "User not authenticated"
+      });
+    }
+
+    const userId = req.user.id || req.user.userId;
     const formattedDueDate = new Date(convertDateFormat(dueDate));
+
     const task = new Task({
       title,
       description,
@@ -24,18 +34,29 @@ router.post('/post', taskMiddleware.validateTaskData, async (req, res) => {
       dueDate: formattedDueDate,
       priority,
       assignedTo: assignedTo || "",
-      userId: req.user.id
+      userId: userId
     });
+
     const savedTask = await task.save();
+
     await User.findByIdAndUpdate(
-      req.user.id,
+      userId,
       { $push: { tasks: savedTask._id } },
       { new: true }
     );
-    res.status(201).json(savedTask);
+
+    res.status(201).json({
+      success: true,
+      message: "Task created successfully",
+      task: savedTask
+    });
   } catch (error) {
     console.error('Error creating task:', error);
-    res.status(500).json({ message: "Server error", error });
+    res.status(500).json({
+      success: false,
+      message: "Failed to create task",
+      error: error.message
+    });
   }
 });
 
@@ -53,10 +74,23 @@ router.get('/:id', taskMiddleware.validateTaskOwnership, async (req, res) => {
   res.status(200).json(req.task);
 });
 
-router.put('/:id', checkRole(['admin', 'manager', 'user']), taskMiddleware.validateTaskOwnership, async (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
-    const task = await Task.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    res.status(200).json(task);
+    const task = await Task.findById(req.params.id);
+    if (!task) {
+      return res.status(404).json({ message: "Task not found" });
+    }
+
+    const userId = req.user.id || req.user.userId;
+
+    if (task.userId.toString() === userId ||
+      task.assignedTo === userId ||
+      ['admin', 'manager'].includes(req.user.role)) {
+      const updatedTask = await Task.findByIdAndUpdate(req.params.id, req.body, { new: true });
+      res.status(200).json(updatedTask);
+    } else {
+      res.status(403).json({ message: "Not authorized to modify this task" });
+    }
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
   }
@@ -71,32 +105,28 @@ router.delete('/:id', checkRole(['admin', 'manager']), taskMiddleware.validateTa
   }
 });
 
-router.patch('/:id', checkRole(['admin', 'manager', 'user']), taskMiddleware.validateTaskOwnership, async (req, res) => {
+router.patch('/:id', async (req, res) => {
   try {
     const task = await Task.findById(req.params.id);
-
     if (!task) {
       return res.status(404).json({ message: "Task not found" });
     }
 
-    if (req.body.status === 'Completed' && task.status !== 'Completed') {
+    const userId = req.user.id || req.user.userId;
 
-      const startDate = new Date(task.createdAt);
-      const endDate = new Date();
-      const completionTime = (endDate - startDate) / (1000 * 60 * 60);
-
-      task.completionTime = completionTime;
-      task.status = 'Completed';
-      task.updatedAt = endDate;
+    if (task.userId.toString() === userId ||
+      task.assignedTo === userId ||
+      ['admin', 'manager'].includes(req.user.role)) {
+      if (req.body.status) task.status = req.body.status;
+      if (req.body.assignedTo) task.assignedTo = req.body.assignedTo;
+      const updatedTask = await task.save();
+      res.status(200).json(updatedTask);
     } else {
-      task.status = req.body.status;
-      task.updatedAt = new Date();
+      res.status(403).json({ message: "Not authorized to modify this task" });
     }
-
-    await task.save();
-    res.status(200).json(task);
   } catch (error) {
-    res.status(500).json({ message: "Server error", error });
+    console.error('Error updating task:', error);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 });
 
