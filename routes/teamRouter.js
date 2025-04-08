@@ -6,7 +6,7 @@ const checkRole = require('../middleware/roleMiddleware');
 
 router.use(authMiddleware);
 
-router.post('/post', checkRole(['admin','manager']), async (req, res) => {
+router.post('/post', checkRole(['admin', 'manager']), async (req, res) => {
   try {
     const { name, managerId, memberIds, members } = req.body;
     if (!name || name.trim() === '') {
@@ -37,16 +37,17 @@ router.post('/post', checkRole(['admin','manager']), async (req, res) => {
       createdBy: req.user.id
     });
     const savedTeam = await team.save();
-    await User.findByIdAndUpdate(managerId, { teamId: savedTeam._id });
+
     if (teamMembers.length > 0) {
       await User.updateMany(
         { _id: { $in: teamMembers } },
         { $set: { teamId: savedTeam._id } }
       );
     }
+
     const populatedTeam = await Team.findById(savedTeam._id)
-      .populate('manager', 'username email')
-      .populate('members', 'username email role');
+      .populate('manager', '_id fullname email')
+      .populate('members', '_id fullname email role');
     res.status(201).json(populatedTeam);
   } catch (error) {
     console.error('Error creating team:', error);
@@ -59,13 +60,14 @@ router.post('/post', checkRole(['admin','manager']), async (req, res) => {
   }
 });
 
-router.get('/', checkRole(['admin','manager','user']), async (req, res) => {
+router.get('/', checkRole(['admin', 'manager', 'user']), async (req, res) => {
   try {
     const teams = await Team.find()
-      .populate('manager', 'username email')
-      .populate('members', 'username email role');
+      .populate('manager', '_id fullname email')
+      .populate('members', '_id fullname email role');
     res.status(200).json(teams);
   } catch (error) {
+    console.error('Error fetching teams:', error);
     res.status(500).json({ message: "Server error", error });
   }
 });
@@ -73,30 +75,38 @@ router.get('/', checkRole(['admin','manager','user']), async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const team = await Team.findById(req.params.id)
-      .populate('manager', 'username email')
-      .populate('members', 'username email role')
-      .populate('createdBy', 'username email');
+      .populate('manager', '_id fullname email')
+      .populate('members', '_id fullname email role')
+      .populate('createdBy', 'fullname email');
     if (!team) {
       return res.status(404).json({ message: "Team not found" });
     }
-    if (req.user.role !== 'admin' &&
-      !team.members.some(member => member._id.toString() === req.user.id) &&
-      team.manager.toString() !== req.user.id) {
+    if (req.user.role === 'admin' || req.user.role === 'manager') {
+      return res.status(200).json(team);
+    }
+    if (!team.members.some(member => member._id.toString() === req.user.id) &&
+      team.manager._id.toString() !== req.user.id) {
       return res.status(403).json({ message: "Unauthorized to view this team" });
     }
+
     res.status(200).json(team);
   } catch (error) {
+    console.error('Error getting team:', error);
     res.status(500).json({ message: "Server error", error });
   }
 });
 
-router.put('/:id', checkRole(['admin','manager']), async (req, res) => {
+router.put('/:id', checkRole(['admin', 'manager']), async (req, res) => {
   try {
     const { name, managerId, memberIds } = req.body;
     const team = await Team.findById(req.params.id);
     if (!team) {
       return res.status(404).json({ message: "Team not found" });
     }
+
+    // Get previous members for later cleanup
+    const previousMembers = [...team.members];
+
     if (managerId) {
       const manager = await User.findById(managerId);
       if (!manager || manager.role !== 'manager') {
@@ -113,22 +123,50 @@ router.put('/:id', checkRole(['admin','manager']), async (req, res) => {
     }
     if (name) team.name = name;
     const updatedTeam = await team.save();
-    res.status(200).json(updatedTeam);
+
+    if (memberIds) {
+      await User.updateMany(
+        { _id: { $in: memberIds } },
+        { $set: { teamId: team._id } }
+      );
+
+      const removedMembers = previousMembers.filter(
+        memberId => !memberIds.includes(memberId.toString())
+      );
+
+      if (removedMembers.length > 0) {
+        await User.updateMany(
+          { _id: { $in: removedMembers } },
+          { $unset: { teamId: 1 } }
+        );
+      }
+    }
+
+    const populatedTeam = await Team.findById(updatedTeam._id)
+      .populate('manager', '_id fullname email')
+      .populate('members', '_id fullname email role');
+
+    res.status(200).json(populatedTeam);
   } catch (error) {
+    console.error('Error updating team:', error);
     res.status(500).json({ message: "Server error", error });
   }
 });
 
-router.delete('/:id', checkRole(['admin','manager']), async (req, res) => {
+router.delete('/:id', checkRole(['admin', 'manager']), async (req, res) => {
   try {
     const team = await Team.findById(req.params.id);
     if (!team) {
       return res.status(404).json({ message: "Team not found" });
     }
-    await User.updateMany(
-      { _id: { $in: [...team.members, team.manager] } },
-      { $unset: { teamId: 1 } }
-    );
+
+    if (team.members && team.members.length > 0) {
+      await User.updateMany(
+        { _id: { $in: team.members } },
+        { $unset: { teamId: 1 } }
+      );
+    }
+
     await Team.findByIdAndDelete(req.params.id);
     res.status(200).json({ message: "Team deleted successfully" });
   } catch (error) {
