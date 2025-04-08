@@ -5,10 +5,16 @@ const authMiddleware = require('../middleware/authMiddleware');
 const taskMiddleware = require('../middleware/taskMiddleware');
 const checkRole = require('../middleware/roleMiddleware');
 
-function convertDateFormat(dateString) {
-  const parts = dateString.split('-');
-  if (parts.length !== 3) return dateString;
-  return `${parts[2]}-${parts[1]}-${parts[0]}`;
+// This function handles date format conversion if needed
+// Frontend now sends dates in YYYY-MM-DD format which is already compatible with MongoDB
+function parseDate(dateString) {
+  try {
+    // Create a date object directly from the ISO format string (YYYY-MM-DD)
+    return new Date(dateString);
+  } catch (error) {
+    console.error('Error parsing date:', error);
+    return null;
+  }
 }
 
 router.use(authMiddleware);
@@ -25,13 +31,22 @@ router.post('/post', taskMiddleware.validateTaskData, async (req, res) => {
     }
 
     const userId = req.user.id || req.user.userId;
-    const formattedDueDate = new Date(convertDateFormat(dueDate));
+
+    // Parse the date using the new function
+    const parsedDueDate = parseDate(dueDate);
+
+    if (!parsedDueDate || isNaN(parsedDueDate.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid date format. Please use YYYY-MM-DD format."
+      });
+    }
 
     const task = new Task({
       title,
       description,
       status: status || "To Do",
-      dueDate: formattedDueDate,
+      dueDate: parsedDueDate,
       priority,
       assignedTo: assignedTo || "",
       userId: userId
@@ -60,7 +75,7 @@ router.post('/post', taskMiddleware.validateTaskData, async (req, res) => {
   }
 });
 
-router.get('/', checkRole(['admin', 'manager', 'user']), async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const tasks = await Task.find();
     res.status(200).json(tasks);

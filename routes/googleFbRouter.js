@@ -41,7 +41,7 @@ router.post(['/', '/google'], async (req, res) => {
 
     if (!user) {
       user = new User({
-        username: name,
+        fullname: name,
         email,
         password: await bcrypt.hash(Math.random().toString(36), 10),
         role: 'user'
@@ -64,7 +64,8 @@ router.post(['/', '/google'], async (req, res) => {
       user: {
         token: jwtToken,
         _id: user._id,
-        username: user.username,
+        id: user._id,
+        fullname: user.fullname,
         email: user.email,
         role: user.role
       }
@@ -79,7 +80,6 @@ router.post(['/', '/google'], async (req, res) => {
   }
 });
 
-// Facebook Authentication
 router.post('/facebook', async (req, res) => {
   try {
     const { accessToken } = req.body;
@@ -94,7 +94,7 @@ router.post('/facebook', async (req, res) => {
 
     if (!user) {
       user = new User({
-        username: name,
+        fullname: name,
         email,
         password: await bcrypt.hash(Math.random().toString(36), 10),
         role: 'user'
@@ -113,7 +113,7 @@ router.post('/facebook', async (req, res) => {
       success: true,
       user: {
         _id: user._id,
-        username: user.username,
+        fullname: user.fullname,
         email: user.email,
         role: user.role
       }
