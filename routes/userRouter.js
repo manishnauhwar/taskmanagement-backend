@@ -238,7 +238,7 @@ router.get('/check-email/:email', async (req, res) => {
 
     if (user) {
       const resetToken = generateResetToken();
-      const resetTokenExpires = new Date(Date.now() + 15 * 60 * 1000); 
+      const resetTokenExpires = new Date(Date.now() + 15 * 60 * 1000);
 
       console.log('Generated reset token:', resetToken);
       console.log('Token expires at:', resetTokenExpires);
@@ -321,7 +321,6 @@ router.get('/verify-reset-token/:token', async (req, res) => {
   }
 });
 
-// New endpoint to reset password with token
 router.post('/reset-password/:token', async (req, res) => {
   try {
     const { token } = req.params;
@@ -339,11 +338,9 @@ router.post('/reset-password/:token', async (req, res) => {
       });
     }
 
-    // Hash the new password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-    // Update password and clear reset token
     user.password = hashedPassword;
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
@@ -477,7 +474,6 @@ router.post('/admin/create-user', upload.single('profilePicture'), async (req, r
     }
     const hashPass = await bcrypt.hash(password, 6);
 
-    // Set profile picture if provided, otherwise it will use the default null value
     const profilePicture = req.file ? {
       data: req.file.buffer,
       contentType: req.file.mimetype
@@ -494,7 +490,6 @@ router.post('/admin/create-user', upload.single('profilePicture'), async (req, r
 
     await newUser.save();
 
-    // Generate a timestamp for cache busting if profile picture exists
     const timestamp = new Date().getTime();
     const profilePictureUrl = profilePicture ?
       `/users/${newUser._id}/profile-picture?t=${timestamp}` : null;
@@ -529,17 +524,14 @@ router.post('/:id/profile-picture', upload.single('profilePicture'), async (req,
 
     console.log(`File received: ${req.file.originalname}, Size: ${req.file.size}, Type: ${req.file.mimetype}`);
 
-    // Log buffer size for debugging
     console.log(`Buffer size: ${req.file.buffer.length} bytes`);
 
-    // 1. First retrieve the user
     const user = await User.findById(id);
     if (!user) {
       console.log(`User ${id} not found`);
       return res.status(404).json({ message: "User not found" });
     }
 
-    // 2. Set the profile picture fields directly
     user.profilePicture = {
       data: req.file.buffer,
       contentType: req.file.mimetype
@@ -547,12 +539,10 @@ router.post('/:id/profile-picture', upload.single('profilePicture'), async (req,
 
     console.log('Saving profile picture...');
 
-    // 3. Save the user document
     await user.save();
 
     console.log('Profile picture saved successfully');
 
-    // Return a timestamp-based URL to prevent caching
     const timestamp = new Date().getTime();
     return res.status(200).json({
       message: "Profile picture updated successfully",
@@ -568,7 +558,6 @@ router.post('/:id/profile-picture', upload.single('profilePicture'), async (req,
   }
 });
 
-// Simplified endpoint to serve profile pictures
 router.get('/:id/profile-picture', async (req, res) => {
   try {
     const { id } = req.params;
@@ -576,16 +565,24 @@ router.get('/:id/profile-picture', async (req, res) => {
 
     const user = await User.findById(id);
 
-    if (!user || !user.profilePicture || !user.profilePicture.data) {
-      console.log(`No profile picture found for user ${id}`);
+    if (!user) {
+      console.log(`User ${id} not found`);
       return res.status(404).send();
     }
 
-    console.log(`Serving profile picture for user ${id}, size: ${user.profilePicture.data.length} bytes`);
+    if (user.profilePicture && user.profilePicture.data) {
+      console.log(`Serving local profile picture for user ${id}, size: ${user.profilePicture.data.length} bytes`);
+      res.set('Content-Type', user.profilePicture.contentType || 'image/jpeg');
+      return res.send(user.profilePicture.data);
+    }
 
-    // Set content type and send the image data
-    res.set('Content-Type', user.profilePicture.contentType || 'image/jpeg');
-    return res.send(user.profilePicture.data);
+    if (user.googleProfilePictureUrl) {
+      console.log(`Redirecting to Google profile picture for user ${id}`);
+      return res.redirect(user.googleProfilePictureUrl);
+    }
+
+    console.log(`No profile picture found for user ${id}`);
+    return res.status(404).send();
   } catch (error) {
     console.error('Error serving profile picture:', error);
     return res.status(500).json({ message: "Error serving profile picture" });

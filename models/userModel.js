@@ -33,6 +33,10 @@ const userSchema = new mongoose.Schema({
       default: 'image/jpeg'
     }
   },
+  googleProfilePictureUrl: {
+    type: String,
+    default: null
+  },
   tasks: [{
     type: [mongoose.Schema.Types.ObjectId],
     ref: 'task'
