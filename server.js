@@ -19,8 +19,9 @@ const httpServer = http.createServer(server);
 
 initializeSocket(httpServer);
 
+// CORS configuration
 server.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:5173', process.env.DEV_URL],
+  origin: ['http://localhost:3000', 'http://localhost:5173', process.env.DEV_URL, process.env.PRO_URL],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
@@ -29,6 +30,7 @@ server.use(cors({
   optionsSuccessStatus: 204
 }));
 
+// Security headers
 server.use((req, res, next) => {
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
   res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
@@ -36,6 +38,11 @@ server.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+
+  // Cache control headers for static assets
+  if (req.path.match(/\.(css|js|webp|svg|png|jpg|jpeg|gif)$/)) {
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+  }
 
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
@@ -48,7 +55,12 @@ server.options('*', cors());
 
 server.use(express.json());
 
-server.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Static file serving with caching
+server.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+  maxAge: '1d',
+  etag: true,
+  lastModified: true
+}));
 
 // server.use((req, res, next) => {
 //   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);

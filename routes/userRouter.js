@@ -10,37 +10,24 @@ const authMiddleware = require('../middleware/authMiddleware');
 const crypto = require('crypto');
 const { sendEmail } = require('../utils/emailService');
 
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadDir = path.join(__dirname, '../uploads');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname);
-    cb(null, 'profile-' + uniqueSuffix + ext);
-  }
-});
+const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
-  const allowedFileTypes = /jpeg|jpg|png|gif/;
+  const allowedFileTypes = /jpeg|jpg|png/;
   const extname = allowedFileTypes.test(path.extname(file.originalname).toLowerCase());
   const mimetype = allowedFileTypes.test(file.mimetype);
 
   if (extname && mimetype) {
     return cb(null, true);
   } else {
-    cb(new Error('Only image files are allowed!'));
+    cb(new Error('Only JPG, JPEG, and PNG image files are allowed!'));
   }
 };
 
 const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 }
+  limits: { fileSize: 7 * 1024 * 1024 }
 });
 
 router.get("/alluser", async (req, res) => {
@@ -52,7 +39,7 @@ router.get("/alluser", async (req, res) => {
   }
 })
 
-router.post('/signup', async (req, res) => {
+router.post('/signup', upload.single('profilePicture'), async (req, res) => {
   try {
     const { fullname, email, password } = req.body;
 
@@ -86,15 +73,26 @@ router.post('/signup', async (req, res) => {
 
     const hashPass = await bcrypt.hash(password, 6);
 
+    const profilePicture = req.file ? {
+      data: req.file.buffer,
+      contentType: req.file.mimetype
+    } : null;
+
     const newUser = new User({
       fullname,
       email,
       password: hashPass,
       role: 'user',
+      profilePicture
     });
 
     await newUser.save();
     console.log('User created successfully:', newUser._id);
+
+    const timestamp = new Date().getTime();
+    const profilePictureUrl = profilePicture ?
+      `/users/${newUser._id}/profile-picture?t=${timestamp}` : null;
+
     return res.status(201).json({
       message: 'User created successfully',
       user: {
@@ -102,7 +100,8 @@ router.post('/signup', async (req, res) => {
         id: newUser._id,
         fullname: newUser.fullname,
         email: newUser.email,
-        role: newUser.role
+        role: newUser.role,
+        profilePicture: profilePictureUrl
       }
     });
   } catch (error) {
@@ -143,6 +142,10 @@ router.post('/login', async (req, res) => {
       { expiresIn: "2d" }
     );
 
+    const timestamp = new Date().getTime();
+    const profilePictureUrl = user.profilePicture && user.profilePicture.data ?
+      `/users/${user._id}/profile-picture?t=${timestamp}` : null;
+
     res.status(200).json({
       message: "Login successful",
       token,
@@ -151,7 +154,7 @@ router.post('/login', async (req, res) => {
         fullname: user.fullname,
         email: user.email,
         role: user.role,
-        profilePicture: user.profilePicture
+        profilePicture: profilePictureUrl
       }
     });
   } catch (error) {
@@ -208,7 +211,6 @@ router.patch('/:id', async (req, res) => {
     const user = await User.findById(id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // Update the teamId field
     if (teamId !== undefined) {
       user.teamId = teamId;
     }
@@ -225,7 +227,6 @@ router.post('/logout', (req, res) => {
   res.status(200).json({ message: 'Logged out successfully' });
 });
 
-// Generate a secure random token
 const generateResetToken = () => {
   return crypto.randomBytes(32).toString('hex');
 };
@@ -236,25 +237,21 @@ router.get('/check-email/:email', async (req, res) => {
     const user = await User.findOne({ email });
 
     if (user) {
-      // Generate reset token
       const resetToken = generateResetToken();
-      const resetTokenExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+      const resetTokenExpires = new Date(Date.now() + 15 * 60 * 1000); 
 
       console.log('Generated reset token:', resetToken);
       console.log('Token expires at:', resetTokenExpires);
 
-      // Store reset token in user document
       user.resetPasswordToken = resetToken;
       user.resetPasswordExpires = resetTokenExpires;
       await user.save();
 
       console.log('Token stored in user document');
 
-      // Create reset URL
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
       const resetUrl = `${frontendUrl}/reset-password/${resetToken}`;
 
-      // Send email with reset link
       const emailSubject = 'Password Reset - Task Manager';
       const emailText = `Click the following link to reset your password: ${resetUrl}\n\nThis link will expire in 15 minutes.`;
       const emailHtml = `
@@ -288,7 +285,6 @@ router.get('/check-email/:email', async (req, res) => {
   }
 });
 
-// New endpoint to verify reset token
 router.get('/verify-reset-token/:token', async (req, res) => {
   try {
     const { token } = req.params;
@@ -428,7 +424,7 @@ router.get('/role/:role', async (req, res) => {
     res.status(500).json({ message: 'Server error', error });
   }
 });
-router.post('/admin/create-user', async (req, res) => {
+router.post('/admin/create-user', upload.single('profilePicture'), async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -481,15 +477,27 @@ router.post('/admin/create-user', async (req, res) => {
     }
     const hashPass = await bcrypt.hash(password, 6);
 
+    // Set profile picture if provided, otherwise it will use the default null value
+    const profilePicture = req.file ? {
+      data: req.file.buffer,
+      contentType: req.file.mimetype
+    } : null;
+
     const newUser = new User({
       fullname,
       email,
       password: hashPass,
       role,
-      username: null
+      username: null,
+      profilePicture
     });
 
     await newUser.save();
+
+    // Generate a timestamp for cache busting if profile picture exists
+    const timestamp = new Date().getTime();
+    const profilePictureUrl = profilePicture ?
+      `/users/${newUser._id}/profile-picture?t=${timestamp}` : null;
 
     return res.status(201).json({
       message: 'User created successfully by admin',
@@ -498,7 +506,8 @@ router.post('/admin/create-user', async (req, res) => {
         id: newUser._id,
         fullname: newUser.fullname,
         email: newUser.email,
-        role: newUser.role
+        role: newUser.role,
+        profilePicture: profilePictureUrl
       }
     });
   } catch (error) {
@@ -511,38 +520,75 @@ router.post('/:id/profile-picture', upload.single('profilePicture'), async (req,
   try {
     const { id } = req.params;
 
+    console.log(`Profile picture upload request for user ${id}`);
+
     if (!req.file) {
+      console.log('No file uploaded in the request');
       return res.status(400).json({ message: "No file uploaded" });
     }
 
+    console.log(`File received: ${req.file.originalname}, Size: ${req.file.size}, Type: ${req.file.mimetype}`);
+
+    // Log buffer size for debugging
+    console.log(`Buffer size: ${req.file.buffer.length} bytes`);
+
+    // 1. First retrieve the user
     const user = await User.findById(id);
     if (!user) {
+      console.log(`User ${id} not found`);
       return res.status(404).json({ message: "User not found" });
     }
 
-    if (user.profilePicture) {
-      try {
-        const oldFilePath = path.join(__dirname, '..', user.profilePicture.replace(/^\//, ''));
-        if (fs.existsSync(oldFilePath) && !oldFilePath.includes('default')) {
-          fs.unlinkSync(oldFilePath);
-        }
-      } catch (err) {
-        console.error('Error deleting old profile picture:', err);
-      }
-    }
+    // 2. Set the profile picture fields directly
+    user.profilePicture = {
+      data: req.file.buffer,
+      contentType: req.file.mimetype
+    };
 
-    const relativePath = '/uploads/' + req.file.filename;
+    console.log('Saving profile picture...');
 
-    user.profilePicture = relativePath;
+    // 3. Save the user document
     await user.save();
 
-    res.status(200).json({
+    console.log('Profile picture saved successfully');
+
+    // Return a timestamp-based URL to prevent caching
+    const timestamp = new Date().getTime();
+    return res.status(200).json({
       message: "Profile picture updated successfully",
-      profilePictureUrl: relativePath
+      profilePictureUrl: `/users/${id}/profile-picture?t=${timestamp}`
     });
   } catch (error) {
     console.error('Error uploading profile picture:', error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    return res.status(500).json({
+      message: "Server error during profile picture upload",
+      error: error.message,
+      stack: error.stack
+    });
+  }
+});
+
+// Simplified endpoint to serve profile pictures
+router.get('/:id/profile-picture', async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log(`Serving profile picture for user ${id}`);
+
+    const user = await User.findById(id);
+
+    if (!user || !user.profilePicture || !user.profilePicture.data) {
+      console.log(`No profile picture found for user ${id}`);
+      return res.status(404).send();
+    }
+
+    console.log(`Serving profile picture for user ${id}, size: ${user.profilePicture.data.length} bytes`);
+
+    // Set content type and send the image data
+    res.set('Content-Type', user.profilePicture.contentType || 'image/jpeg');
+    return res.send(user.profilePicture.data);
+  } catch (error) {
+    console.error('Error serving profile picture:', error);
+    return res.status(500).json({ message: "Error serving profile picture" });
   }
 });
 

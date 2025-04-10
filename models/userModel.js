@@ -24,8 +24,14 @@ const userSchema = new mongoose.Schema({
     default: 'user'
   },
   profilePicture: {
-    type: String,
-    default: null
+    data: {
+      type: Buffer,
+      default: null
+    },
+    contentType: {
+      type: String,
+      default: 'image/jpeg'
+    }
   },
   tasks: [{
     type: [mongoose.Schema.Types.ObjectId],
