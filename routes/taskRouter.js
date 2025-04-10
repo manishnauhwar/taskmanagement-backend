@@ -110,15 +110,26 @@ router.put('/:id', async (req, res) => {
     res.status(500).json({ message: "Server error", error });
   }
 });
-
-router.delete('/:id', checkRole(['admin', 'manager']), taskMiddleware.validateTaskOwnership, async (req, res) => {
+router.delete('/:id', taskMiddleware.validateTaskOwnership, async (req, res) => {
   try {
-    await Task.findByIdAndDelete(req.params.id);
-    res.status(200).json({ message: "Task deleted successfully" });
+    const task = await Task.findById(req.params.id);
+    if (!task) {
+      return res.status(404).json({ message: "Task not found" });
+    }
+
+    const userId = req.user.id || req.user.userId;
+
+    if (task.userId.toString() === userId || ['admin', 'manager'].includes(req.user.role)) {
+      await Task.findByIdAndDelete(req.params.id);
+      res.status(200).json({ message: "Task deleted successfully" });
+    } else {
+      res.status(403).json({ message: "Not authorized to delete this task" });
+    }
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
   }
 });
+
 
 router.patch('/:id', async (req, res) => {
   try {
