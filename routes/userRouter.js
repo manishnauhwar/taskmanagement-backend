@@ -162,18 +162,62 @@ router.post('/login', async (req, res) => {
   }
 });
 
-router.put('/:id', async (req, res) => {
+// router.put('/:id', async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const { fullname, email, password } = req.body;
+
+//     const user = await User.findById(id);
+//     if (!user) return res.status(404).json({ message: "User not found" });
+
+//     if (fullname && fullname.length < 3) {
+//       return res.status(400).json({ message: 'fullname must be at least 3 characters long' });
+//     }
+
+//     if (email) {
+//       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+//       if (!emailRegex.test(email)) {
+//         return res.status(400).json({ message: 'Invalid email format' });
+//       }
+//       const existingEmail = await User.findOne({ email });
+//       if (existingEmail && existingEmail._id.toString() !== id) {
+//         return res.status(400).json({ message: 'Email already exists' });
+//       }
+//     }
+
+//     if (password && password.length < 6) {
+//       return res.status(400).json({ message: 'Password must be at least 6 characters long' });
+//     }
+
+//     if (password) {
+//       user.password = await bcrypt.hash(password, 6);
+//     }
+//     if (fullname) user.fullname = fullname;
+//     if (email) user.email = email;
+
+//     await user.save();
+
+//     res.status(200).json({ message: "User updated successfully", user });
+//   } catch (error) {
+//     res.status(500).json({ message: "Server error", error });
+//   }
+// });
+
+router.put('/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    const { fullname, email, password } = req.body;
+    // Destructure the role field along with the other fields.
+    const { fullname, email, password, role } = req.body;
 
     const user = await User.findById(id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
+    // Validate fullname.
     if (fullname && fullname.length < 3) {
       return res.status(400).json({ message: 'fullname must be at least 3 characters long' });
     }
 
+    // Validate email format and check for duplicate email.
     if (email) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
@@ -185,15 +229,27 @@ router.put('/:id', async (req, res) => {
       }
     }
 
+    // Validate password.
     if (password && password.length < 6) {
       return res.status(400).json({ message: 'Password must be at least 6 characters long' });
     }
 
+    // Update password if provided.
     if (password) {
       user.password = await bcrypt.hash(password, 6);
     }
+    // Update fullname and email if provided.
     if (fullname) user.fullname = fullname;
     if (email) user.email = email;
+
+    // For role updates: Only allow this if the authenticated user is an admin.
+    if (role && req.user && req.user.role === 'admin') {
+      // Optionally add a check to ensure the role is one of the accepted values.
+      if (!['user', 'manager', 'admin'].includes(role)) {
+        return res.status(400).json({ message: 'Invalid role specified' });
+      }
+      user.role = role;
+    }
 
     await user.save();
 
@@ -249,7 +305,7 @@ router.get('/check-email/:email', async (req, res) => {
 
       console.log('Token stored in user document');
 
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const frontendUrl = process.env.FRONTEND_URL;
       const resetUrl = `${frontendUrl}/reset-password/${resetToken}`;
 
       const emailSubject = 'Password Reset - Task Manager';
