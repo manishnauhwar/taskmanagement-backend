@@ -21,7 +21,7 @@ initializeSocket(httpServer);
 
 // CORS configuration
 server.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:5173', process.env.DEV_URL, process.env.PRO_URL],
+  origin: ['http://localhost:3000', 'http://localhost:5173', process.env.DEV_URL, process.env.PRO_URL, process.env.NATIVE_MOBILE_URL],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
