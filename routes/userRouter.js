@@ -708,4 +708,76 @@ router.post('/set-notification-preferences', authMiddleware, async (req, res) =>
   }
 });
 
+router.post('/google-auth', async (req, res) => {
+  try {
+    const { email, displayName, uid, photoURL } = req.body;
+
+    if (!email || !displayName || !uid) {
+      return res.status(400).json({ message: 'Invalid Google auth data' });
+    }
+
+    console.log('Google auth request received:', { email, displayName, uid });
+
+    let user = await User.findOne({ email });
+    let newUser = false;
+
+    if (!user) {
+      newUser = true;
+
+      const randomPassword = crypto.randomBytes(20).toString('hex');
+      const hashPass = await bcrypt.hash(randomPassword, 6);
+
+      user = new User({
+        fullname: displayName,
+        email: email,
+        password: hashPass,
+        role: 'user',
+        googleProfilePictureUrl: photoURL || null
+      });
+
+      await user.save();
+      console.log('New user created from Google auth:', user._id);
+    } else {
+      if (photoURL && photoURL !== user.googleProfilePictureUrl) {
+        user.googleProfilePictureUrl = photoURL;
+        await user.save();
+      }
+    }
+
+    const token = jwt.sign(
+      {
+        id: user._id,
+        email: user.email,
+        role: user.role
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "2d" }
+    );
+
+    const timestamp = new Date().getTime();
+    let profilePictureUrl = null;
+    
+    if (user.googleProfilePictureUrl) {
+      profilePictureUrl = user.googleProfilePictureUrl;
+    } else if (user.profilePicture && user.profilePicture.data) {
+      profilePictureUrl = `/users/${user._id}/profile-picture?t=${timestamp}`;
+    }
+
+    res.status(200).json({
+      message: newUser ? "Google signup successful" : "Google login successful",
+      token,
+      user: {
+        id: user._id,
+        fullname: user.fullname,
+        email: user.email,
+        role: user.role,
+        profilePicture: profilePictureUrl
+      }
+    });
+  } catch (error) {
+    console.error('Google auth error:', error);
+    res.status(500).json({ message: "Server error during Google authentication", error: error.toString() });
+  }
+});
+
 module.exports = router;
