@@ -49,12 +49,9 @@ router.post('/signup', upload.single('profilePicture'), async (req, res) => {
       return res.status(400).json({ message: 'All fields are required: fullname, email, password' });
     }
 
-    const existingUser = await User.findOne({ fullname });
     const existingEmail = await User.findOne({ email });
 
-    if (existingUser) {
-      return res.status(400).json({ message: 'User already exists' });
-    } else if (fullname.length < 3) {
+    if (fullname.length < 3) {
       return res.status(400).json({ message: 'fullname must be at least 3 characters long' });
     }
 
@@ -503,12 +500,9 @@ router.post('/admin/create-user', upload.single('profilePicture'), async (req, r
       return res.status(400).json({ message: 'All fields are required: fullname, email, password, role' });
     }
 
-    const existingUser = await User.findOne({ fullname });
     const existingEmail = await User.findOne({ email });
 
-    if (existingUser) {
-      return res.status(400).json({ message: 'User already exists' });
-    } else if (fullname.length < 3) {
+    if (fullname.length < 3) {
       return res.status(400).json({ message: 'fullname must be at least 3 characters long' });
     }
 
