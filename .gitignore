@@ -37,3 +37,9 @@ coverage
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Firebase
+firebase-service-account.json
+*.p8
+*.p12
+*.key
